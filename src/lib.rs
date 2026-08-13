@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown)]
 use std::{
+    cell::UnsafeCell,
     error::Error,
     ffi::c_int,
     fmt::Display,
@@ -36,7 +37,7 @@ use minrx_sys::{
 #[repr(transparent)]
 #[must_use = "This value does nothing on its own -- you must call its methods
               to start matching."]
-pub struct Regex(minrx_regex_t);
+pub struct Regex(UnsafeCell<minrx_regex_t>);
 
 /// A match on some haystack. It is a wrapper of [`std::range::Range<usize>`]
 /// with some convenience methods and derives.
@@ -112,7 +113,7 @@ impl Regex {
     /// Returns the number of captures the pattern generated.
     #[must_use]
     pub fn capture_len(&self) -> usize {
-        self.0.re_nsub
+        unsafe { &*self.0.get() }.re_nsub
     }
 
     /// Attempts to find one match of the pattern in the haystack. Its behavior
@@ -278,7 +279,7 @@ impl Regex {
 
         let res = unsafe {
             minrx_regnexec(
-                (&raw const self.0).cast_mut(),
+                self.0.get(),
                 haystack.len(),
                 haystack.as_ptr(),
                 buf_cap,
@@ -318,7 +319,7 @@ impl RegexBuilder {
         BuildError::from_raw(res, &mut regex)?;
 
         let regex = unsafe { regex.assume_init() };
-        Ok(Regex(regex))
+        Ok(Regex(regex.into()))
     }
 
     /// Uses extended POSIX syntax. This is enabled by default, and in the
@@ -485,14 +486,14 @@ impl BuildError {
             res if res == minrx_result_t_MINRX_REG_ESUBREG => Err(Self::InvalidDigitEscape(err())),
             _ => Err(Self::Unknown(err())),
         };
-        drop(Regex(unsafe { regex.assume_init() }));
+        drop(Regex(unsafe { regex.assume_init().into() }));
         err
     }
 }
 
 impl MatchError {
     fn from_raw(res: c_int, regex: &Regex) -> Result<bool, Self> {
-        let err = || regerror(res, &raw const regex.0);
+        let err = || regerror(res, regex.0.get());
         match res.cast_unsigned() {
             res if res == minrx_result_t_MINRX_REG_SUCCESS => Ok(true),
             res if res == minrx_result_t_MINRX_REG_NOMATCH => Ok(false),
@@ -581,7 +582,7 @@ fn regerror(res: c_int, regex: *const minrx_regex_t) -> String {
 
 impl Drop for Regex {
     fn drop(&mut self) {
-        unsafe { minrx_regfree(&raw mut self.0) };
+        unsafe { minrx_regfree(self.0.get()) };
     }
 }
 
