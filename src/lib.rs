@@ -281,7 +281,7 @@ impl Regex {
             minrx_regnexec(
                 self.0.get(),
                 haystack.len(),
-                haystack.as_ptr(),
+                haystack.as_ptr().cast(),
                 buf_cap,
                 buf_ptr,
                 options.as_c_int(),
@@ -312,7 +312,7 @@ impl RegexBuilder {
             minrx_regncomp(
                 regex.as_mut_ptr(),
                 pattern.len(),
-                pattern.as_ptr(),
+                pattern.as_ptr().cast(),
                 self.as_c_int(),
             )
         };
@@ -568,12 +568,12 @@ where
 }
 
 fn regerror(res: c_int, regex: *const minrx_regex_t) -> String {
-    let mut buf = Vec::with_capacity(53);
-    let new_len = unsafe { minrx_regerror(res, regex, buf.as_mut_ptr(), buf.capacity()) };
+    let mut buf = Vec::<u8>::with_capacity(53);
+    let new_len = unsafe { minrx_regerror(res, regex, buf.as_mut_ptr().cast(), buf.capacity()) };
 
     if new_len > buf.capacity() {
         buf.reserve_exact(new_len);
-        unsafe { minrx_regerror(res, regex, buf.as_mut_ptr(), buf.capacity()) };
+        unsafe { minrx_regerror(res, regex, buf.as_mut_ptr().cast(), buf.capacity()) };
     }
 
     unsafe { buf.set_len(new_len.saturating_sub(1)) }; // Set len; remove null-terminator.
