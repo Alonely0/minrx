@@ -52,7 +52,7 @@ pub struct Match {
 pub struct MatchIter<'r, 'h> {
     regex: &'r Regex,
     haystack: &'h [u8],
-    rm: [minrx_regmatch_t; 1],
+    rm: minrx_regmatch_t,
     options: MatchOptions,
     resuming: bool,
     is_done: bool,
@@ -111,23 +111,53 @@ impl Regex {
 
     /// Returns the number of captures the pattern generated.
     #[must_use]
-    pub fn capture_count(&self) -> usize {
+    pub fn capture_len(&self) -> usize {
         self.0.re_nsub
     }
 
-    /// Returns matches for all captures, if any. Its behavior can be customized
-    /// with [`Self::find_matches_with`].
+    /// Attempts to find one match of the pattern in the haystack. Its behavior
+    /// can be customized with [`Self::find_with`].
     ///
     /// # Errors
     ///
     /// This method returns an error if there is an internal failure of the
     /// MinRX library, or an allocation failure (it ought not to allocate at
     /// this stage, though). Therefore, this is unlikely to error.
-    pub fn find_matches(
+    pub fn find(&self, haystack: impl AsRef<[u8]>) -> Result<Option<Match>, MatchError> {
+        self.find_with(haystack, MatchOptions::new())
+    }
+
+    /// Attempts to find one match of the pattern in the haystack. Allows for
+    /// some execution options.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error if there is an internal failure of the
+    /// MinRX library, or an allocation failure (it ought not to allocate at
+    /// this stage, though). Therefore, this is unlikely to error.
+    pub fn find_with(
         &self,
         haystack: impl AsRef<[u8]>,
-    ) -> Result<Option<Box<[Option<Match>]>>, MatchError> {
-        self.find_matches_with(haystack, MatchOptions::new())
+        options: MatchOptions,
+    ) -> Result<Option<Match>, MatchError> {
+        let mut buf = MaybeUninit::<[minrx_regmatch_t; 1]>::uninit();
+        let res = unsafe {
+            self.regnexec(
+                haystack.as_ref(),
+                Some(non_null_slice(&mut buf, 1)),
+                options,
+            )
+        };
+
+        res.map(|found| {
+            found.then(|| {
+                let rm = unsafe { buf.assume_init() }[0];
+                Match {
+                    start: rm.rm_so.cast_unsigned(),
+                    end: rm.rm_eo.cast_unsigned(),
+                }
+            })
+        })
     }
 
     /// Returns if the pattern matches any substring. It is recommended you
@@ -144,6 +174,21 @@ impl Regex {
         self.is_match_with(haystack, MatchOptions::new())
     }
 
+    /// Returns matches for all captures, if any. Its behavior can be customized
+    /// with [`Self::captures_with`].
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error if there is an internal failure of the
+    /// MinRX library, or an allocation failure (it ought not to allocate at
+    /// this stage, though). Therefore, this is unlikely to error.
+    pub fn captures(
+        &self,
+        haystack: impl AsRef<[u8]>,
+    ) -> Result<Option<Box<[Option<Match>]>>, MatchError> {
+        self.captures_with(haystack, MatchOptions::new())
+    }
+
     /// Returns matches for all captures, if any. Allows for some execution
     /// options.
     ///
@@ -152,20 +197,20 @@ impl Regex {
     /// This method returns an error if there is an internal failure of the
     /// MinRX library, or an allocation failure (it ought not to allocate at
     /// this stage, though). Therefore, this is unlikely to error.
-    pub fn find_matches_with(
+    pub fn captures_with(
         &self,
         haystack: impl AsRef<[u8]>,
         options: MatchOptions,
     ) -> Result<Option<Box<[Option<Match>]>>, MatchError> {
         let haystack = haystack.as_ref();
-        let mut buf = Vec::with_capacity(self.0.re_nsub + 1);
-        let slice =
-            NonNull::slice_from_raw_parts(NonNull::from(buf.as_slice()).cast(), buf.capacity());
-        let res = unsafe { self.regnexec(haystack, Some(slice), options) };
+        let n_matches = self.capture_len() + 1;
+        let mut buf = Vec::with_capacity(n_matches);
+        let slice = non_null_slice(buf.as_mut_slice(), n_matches);
 
+        let res = unsafe { self.regnexec(haystack, Some(slice), options) };
         res.map(|found| {
             found.then(|| {
-                unsafe { buf.set_len(buf.capacity()) };
+                unsafe { buf.set_len(n_matches) };
                 buf.into_iter()
                     .map(|m: minrx_regmatch_t| {
                         Some(Match {
@@ -192,21 +237,21 @@ impl Regex {
         haystack: impl AsRef<[u8]>,
         options: MatchOptions,
     ) -> Result<bool, MatchError> {
-        unsafe { self.regnexec(haystack, None, options) }
+        unsafe { self.regnexec(haystack.as_ref(), None, options) }
     }
 
     /// Returns an iterator over all matches of the pattern. Its behavior can
-    /// be customized with [`Self::find_matches_with`].
+    /// be customized with [`Self::captures_with`].
     pub fn find_iter<'r, 'h>(
         &'r self,
         haystack: &'h (impl AsRef<[u8]> + ?Sized),
     ) -> MatchIter<'r, 'h> {
-        self.find_iter_with_flags(haystack, MatchOptions::new())
+        self.find_iter_with(haystack, MatchOptions::new())
     }
 
     /// Returns an iterator over all matches of the pattern. Allows for some
     /// execution options.
-    pub fn find_iter_with_flags<'r, 'h>(
+    pub fn find_iter_with<'r, 'h>(
         &'r self,
         haystack: &'h (impl AsRef<[u8]> + ?Sized),
         options: MatchOptions,
@@ -214,7 +259,7 @@ impl Regex {
         MatchIter {
             regex: self,
             haystack: haystack.as_ref(),
-            rm: [minrx_regmatch_t { rm_so: 0, rm_eo: 0 }],
+            rm: minrx_regmatch_t { rm_so: 0, rm_eo: 0 },
             options,
             resuming: false,
             is_done: false,
@@ -222,13 +267,13 @@ impl Regex {
     }
 
     /// Internal utility.
+    #[inline]
     unsafe fn regnexec(
         &self,
-        haystack: impl AsRef<[u8]>,
+        haystack: &[u8],
         buf: Option<NonNull<[minrx_regmatch_t]>>,
         options: MatchOptions,
     ) -> Result<bool, MatchError> {
-        let haystack = haystack.as_ref();
         let (buf_ptr, buf_cap) = buf.map_or_default(|b| (b.as_ptr().cast(), b.len()));
 
         let res = unsafe {
@@ -365,7 +410,7 @@ impl MatchOptions {
 
     /// Creates a new [`MatchOptions`] that can be freely reused. This struct
     /// configures [`Regex`] matching, and can be used with
-    /// [`Regex::find_matches_with`] and [`Regex::is_match_with`]. Their
+    /// [`Regex::captures_with`] and [`Regex::is_match_with`]. Their
     /// non-`_with` counterparts use the default value of this.
     pub fn new() -> Self {
         Self(0)
@@ -477,15 +522,15 @@ impl Iterator for MatchIter<'_, '_> {
         let res = unsafe {
             self.regex.regnexec(
                 self.haystack,
-                Some(NonNull::from(&mut self.rm)),
+                Some(non_null_slice(&mut self.rm, 1)),
                 self.options,
             )
         };
 
         match res {
             Ok(true) => {
-                let so = self.rm[0].rm_so.cast_unsigned();
-                let eo = self.rm[0].rm_eo.cast_unsigned();
+                let so = self.rm.rm_so.cast_unsigned();
+                let eo = self.rm.rm_eo.cast_unsigned();
 
                 if so == eo {
                     if eo >= self.haystack.len() {
@@ -494,7 +539,7 @@ impl Iterator for MatchIter<'_, '_> {
                         // MINRX_REG_RESUME only repositions when `rm_eo > 0`,
                         // so an empty match would otherwise be found again
                         // forever. This bumps it forward one character.
-                        self.rm[0].rm_eo += 1;
+                        self.rm.rm_eo += 1;
                     }
                 }
 
@@ -550,9 +595,9 @@ impl From<Match> for std::ops::Range<usize> {
 
 impl Match {
     /// Returns the components as a [`Range<usize>`] that can be used for slice
-    /// indexing. This is equivalent to [`<Self as Into<Range<usize>>::into`],
-    /// but takes by-reference; this might be friendlier for usage in Higher-
-    /// Kinded Functions (HKFs).
+    /// indexing. This is equivalent to the [`From`] implementation, but takes
+    /// by-reference; this might be friendlier for usage in Higher-Kinded
+    /// Functions (HKFs).
     ///
     /// Note: this is the new Range. You may use its [`From`] impl if you need
     /// the legacy one.
@@ -566,6 +611,10 @@ impl From<Match> for Range<usize> {
     fn from(value: Match) -> Self {
         value.range()
     }
+}
+
+fn non_null_slice<T: ?Sized, U>(ptr: impl Into<NonNull<T>>, len: usize) -> NonNull<[U]> {
+    NonNull::slice_from_raw_parts(ptr.into().cast::<U>(), len)
 }
 
 impl Display for BuildError {

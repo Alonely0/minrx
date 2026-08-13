@@ -19,17 +19,17 @@ fn test_case_sensitive_default() {
 }
 
 #[test]
-fn test_find_matches_whole_match() {
+fn test_captures_whole_match() {
     let re = Regex::new("a+b").unwrap();
     let expected = Some(Match { start: 2, end: 6 });
-    let matches = re.find_matches("xxaaab").unwrap().unwrap();
+    let matches = re.captures("xxaaab").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
 #[test]
-fn test_find_matches_no_match_returns_none() {
+fn test_captures_no_match_returns_none() {
     let re = Regex::new("xyz").unwrap();
-    let result = re.find_matches("abc").unwrap();
+    let result = re.captures("abc").unwrap();
     assert_eq!(result, None);
 }
 
@@ -42,19 +42,19 @@ fn test_is_match_no_match() {
 #[test]
 fn test_capture_count_no_groups() {
     let re = Regex::new("abc").unwrap();
-    assert_eq!(re.capture_count(), 0);
+    assert_eq!(re.capture_len(), 0);
 }
 
 #[test]
 fn test_capture_count_multiple_groups() {
     let re = Regex::new("(a+)(b+)(c+)").unwrap();
-    assert_eq!(re.capture_count(), 3);
+    assert_eq!(re.capture_len(), 3);
 }
 
 #[test]
 fn test_capture_groups_positions() {
     let re = Regex::new("(a+)(b+)").unwrap();
-    let matches = re.find_matches("aaabbb").unwrap().unwrap();
+    let matches = re.captures("aaabbb").unwrap().unwrap();
     assert_eq!(matches.len(), 3);
     assert_eq!(matches[0], Some(Match { start: 0, end: 6 }));
     assert_eq!(matches[1], Some(Match { start: 0, end: 3 }));
@@ -64,8 +64,8 @@ fn test_capture_groups_positions() {
 #[test]
 fn test_nested_groups() {
     let re = Regex::new("((a)(b))").unwrap();
-    assert_eq!(re.capture_count(), 3);
-    let matches = re.find_matches("ab").unwrap().unwrap();
+    assert_eq!(re.capture_len(), 3);
+    let matches = re.captures("ab").unwrap().unwrap();
     assert_eq!(matches[0], Some(Match { start: 0, end: 2 }));
     assert_eq!(matches[1], Some(Match { start: 0, end: 2 }));
     assert_eq!(matches[2], Some(Match { start: 0, end: 1 }));
@@ -75,7 +75,7 @@ fn test_nested_groups() {
 #[test]
 fn test_non_participating_group_is_none() {
     let re = Regex::new("(a)|(b)").unwrap();
-    let matches = re.find_matches("b").unwrap().unwrap();
+    let matches = re.captures("b").unwrap().unwrap();
     assert_eq!(matches[0], Some(Match { start: 0, end: 1 }));
     assert_eq!(matches[1], None);
     assert_eq!(matches[2], Some(Match { start: 0, end: 1 }));
@@ -93,7 +93,7 @@ fn test_alternation() {
 fn test_character_class_range() {
     let re = Regex::new("[0-9]+").unwrap();
     let expected = Some(Match { start: 3, end: 6 });
-    let matches = re.find_matches("abc123def").unwrap().unwrap();
+    let matches = re.captures("abc123def").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -101,7 +101,7 @@ fn test_character_class_range() {
 fn test_negated_character_class() {
     let re = Regex::new("[^0-9]+").unwrap();
     let expected = Some(Match { start: 3, end: 6 });
-    let matches = re.find_matches("123abc456").unwrap().unwrap();
+    let matches = re.captures("123abc456").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -122,7 +122,7 @@ fn test_posix_class_alpha() {
 fn test_interval_exact_repetition() {
     let re = Regex::new("a{3}").unwrap();
     let expected = Some(Match { start: 0, end: 3 });
-    let matches = re.find_matches("aaaa").unwrap().unwrap();
+    let matches = re.captures("aaaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -130,7 +130,7 @@ fn test_interval_exact_repetition() {
 fn test_interval_min_max_repetition() {
     let re = Regex::new("a{2,4}").unwrap();
     let expected = Some(Match { start: 0, end: 4 });
-    let matches = re.find_matches("aaaaa").unwrap().unwrap();
+    let matches = re.captures("aaaaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -138,7 +138,7 @@ fn test_interval_min_max_repetition() {
 fn test_interval_min_only_repetition() {
     let re = Regex::new("a{2,}").unwrap();
     let expected = Some(Match { start: 0, end: 5 });
-    let matches = re.find_matches("aaaaa").unwrap().unwrap();
+    let matches = re.captures("aaaaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -173,14 +173,14 @@ fn test_anchors_start_and_end() {
 fn test_empty_pattern_matches_empty_string() {
     let re = Regex::new("").unwrap();
     let expected = Some(Match { start: 0, end: 0 });
-    let matches = re.find_matches("anything").unwrap().unwrap();
+    let matches = re.captures("anything").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
 #[test]
 fn test_empty_haystack_no_match() {
     let re = Regex::new("a+").unwrap();
-    let result = re.find_matches("").unwrap();
+    let result = re.captures("").unwrap();
     assert_eq!(result, None);
 }
 
@@ -231,7 +231,7 @@ fn test_case_insensitive_disabled_by_default() {
 fn test_swap_greed_makes_plus_minimal() {
     let re = RegexBuilder::new().swap_greed(true).build("a+").unwrap();
     let expected = Some(Match { start: 0, end: 1 });
-    let matches = re.find_matches("aaa").unwrap().unwrap();
+    let matches = re.captures("aaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -239,7 +239,7 @@ fn test_swap_greed_makes_plus_minimal() {
 fn test_default_greed_is_maximal() {
     let re = Regex::new("a+").unwrap();
     let expected = Some(Match { start: 0, end: 3 });
-    let matches = re.find_matches("aaa").unwrap().unwrap();
+    let matches = re.captures("aaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -247,7 +247,7 @@ fn test_default_greed_is_maximal() {
 fn test_multi_line_caret_matches_after_newline() {
     let re = RegexBuilder::new().multi_line(true).build("^b").unwrap();
     let expected = Some(Match { start: 2, end: 3 });
-    let matches = re.find_matches("a\nb").unwrap().unwrap();
+    let matches = re.captures("a\nb").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -255,14 +255,14 @@ fn test_multi_line_caret_matches_after_newline() {
 fn test_multi_line_dollar_matches_before_newline() {
     let re = RegexBuilder::new().multi_line(true).build("a$").unwrap();
     let expected = Some(Match { start: 0, end: 1 });
-    let matches = re.find_matches("a\nb").unwrap().unwrap();
+    let matches = re.captures("a\nb").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
 #[test]
 fn test_multi_line_dot_excludes_newline() {
     let re = RegexBuilder::new().multi_line(true).build("a.b").unwrap();
-    let result = re.find_matches("a\nb").unwrap();
+    let result = re.captures("a\nb").unwrap();
     assert_eq!(result, None);
 }
 
@@ -344,7 +344,7 @@ fn test_match_options_default_matches_new_behavior() {
 fn test_not_bol_disables_caret_at_start() {
     let re = Regex::new("^abc").unwrap();
     let opts = MatchOptions::new().not_bol(true);
-    let result = re.find_matches_with("abc", opts).unwrap();
+    let result = re.captures_with("abc", opts).unwrap();
     assert_eq!(result, None);
 }
 
@@ -353,7 +353,7 @@ fn test_not_bol_false_allows_caret_at_start() {
     let re = Regex::new("^abc").unwrap();
     let opts = MatchOptions::new().not_bol(false);
     let expected = Some(Match { start: 0, end: 3 });
-    let matches = re.find_matches_with("abc", opts).unwrap().unwrap();
+    let matches = re.captures_with("abc", opts).unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -361,7 +361,7 @@ fn test_not_bol_false_allows_caret_at_start() {
 fn test_not_eol_disables_dollar_at_end() {
     let re = Regex::new("abc$").unwrap();
     let opts = MatchOptions::new().not_eol(true);
-    let result = re.find_matches_with("abc", opts).unwrap();
+    let result = re.captures_with("abc", opts).unwrap();
     assert_eq!(result, None);
 }
 
@@ -370,7 +370,7 @@ fn test_first_subexpr_captures_first_occurrence() {
     let re = Regex::new("(a|b)+").unwrap();
     let opts = MatchOptions::new().first_subexpr(true);
     let expected = Some(Match { start: 0, end: 1 });
-    let matches = re.find_matches_with("ab", opts).unwrap().unwrap();
+    let matches = re.captures_with("ab", opts).unwrap().unwrap();
     assert_eq!(matches[1], expected);
 }
 
@@ -378,7 +378,7 @@ fn test_first_subexpr_captures_first_occurrence() {
 fn test_default_captures_last_occurrence() {
     let re = Regex::new("(a|b)+").unwrap();
     let expected = Some(Match { start: 1, end: 2 });
-    let matches = re.find_matches("ab").unwrap().unwrap();
+    let matches = re.captures("ab").unwrap().unwrap();
     assert_eq!(matches[1], expected);
 }
 
@@ -421,7 +421,7 @@ fn test_find_iter_single_full_match() {
 fn test_find_iter_with_flags_not_bol() {
     let re = Regex::new("^a").unwrap();
     let opts = MatchOptions::new().not_bol(true);
-    let results: Vec<_> = re.find_iter_with_flags("aaa", opts).collect();
+    let results: Vec<_> = re.find_iter_with("aaa", opts).collect();
     assert!(results.is_empty());
 }
 
@@ -474,10 +474,10 @@ fn test_repeated_is_match_calls_are_stable() {
 }
 
 #[test]
-fn test_repeated_find_matches_calls_are_stable() {
+fn test_repeated_captures_calls_are_stable() {
     let re = Regex::new("[0-9]+").unwrap();
-    let first = re.find_matches("a1b").unwrap().unwrap();
-    let second = re.find_matches("cc22dd").unwrap().unwrap();
+    let first = re.captures("a1b").unwrap().unwrap();
+    let second = re.captures("cc22dd").unwrap().unwrap();
     assert_eq!(first[0], Some(Match { start: 1, end: 2 }));
     assert_eq!(second[0], Some(Match { start: 2, end: 4 }));
 }
@@ -486,7 +486,7 @@ fn test_repeated_find_matches_calls_are_stable() {
 fn test_leftmost_longest_match_semantics() {
     let re = Regex::new("a|ab|abc").unwrap();
     let expected = Some(Match { start: 0, end: 3 });
-    let matches = re.find_matches("abcd").unwrap().unwrap();
+    let matches = re.captures("abcd").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -494,7 +494,7 @@ fn test_leftmost_longest_match_semantics() {
 fn test_leftmost_match_preferred_over_later_longer() {
     let re = Regex::new("a+").unwrap();
     let expected = Some(Match { start: 0, end: 1 });
-    let matches = re.find_matches("a bb aaaaa").unwrap().unwrap();
+    let matches = re.captures("a bb aaaaa").unwrap().unwrap();
     assert_eq!(matches[0], expected);
 }
 
@@ -516,7 +516,7 @@ fn test_backslash_escapes_metacharacter() {
 #[test]
 fn test_multiple_capture_groups_with_alternation() {
     let re = Regex::new("(foo)|(bar)|(baz)").unwrap();
-    let matches = re.find_matches("baz").unwrap().unwrap();
+    let matches = re.captures("baz").unwrap().unwrap();
     assert_eq!(matches[0], Some(Match { start: 0, end: 3 }));
     assert_eq!(matches[1], None);
     assert_eq!(matches[2], None);
