@@ -141,7 +141,7 @@ impl Regex {
         haystack: impl AsRef<[u8]>,
         options: MatchOptions,
     ) -> Result<Option<Match>, MatchError> {
-        let mut buf = MaybeUninit::<[minrx_regmatch_t; 1]>::uninit();
+        let mut buf = MaybeUninit::<minrx_regmatch_t>::uninit();
         let res = unsafe {
             self.regnexec(
                 haystack.as_ref(),
@@ -152,7 +152,7 @@ impl Regex {
 
         res.map(|found| {
             found.then(|| {
-                let rm = unsafe { buf.assume_init() }[0];
+                let rm = unsafe { buf.assume_init() };
                 Match {
                     start: rm.rm_so.cast_unsigned(),
                     end: rm.rm_eo.cast_unsigned(),
