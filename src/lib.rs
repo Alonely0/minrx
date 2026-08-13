@@ -8,7 +8,7 @@ use std::{
     fmt::Display,
     mem::MaybeUninit,
     ops::{BitAnd, BitOr, Not},
-    ptr::NonNull,
+    ptr::{NonNull, null_mut},
     range::Range,
 };
 
@@ -275,7 +275,7 @@ impl Regex {
         buf: Option<NonNull<[minrx_regmatch_t]>>,
         options: MatchOptions,
     ) -> Result<bool, MatchError> {
-        let (buf_ptr, buf_cap) = buf.map_or_default(|b| (b.as_ptr().cast(), b.len()));
+        let (buf_ptr, buf_cap) = buf.map_or((null_mut(), 0), |b| (b.as_ptr().cast(), b.len()));
 
         let res = unsafe {
             minrx_regnexec(
