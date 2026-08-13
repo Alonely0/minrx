@@ -1,0 +1,16 @@
+[package]
+name = "minrx"
+version = "0.1.0"
+edition = "2024"
+authors = ["Guillem L. Jara <4lon3ly0@tutanota.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Alonely0/minrx"
+description = "High-level bindings to MinRX, by Michael J. Haertel."
+categories = ["text-processing", "algorithms"]
+keywords = ["minrx", "regex", "regexp", "posix", "ere"]
+
+[lib]
+name = "minrx"
+
+[dependencies]
+minrx-sys = "0.1.0"
