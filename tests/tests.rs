@@ -1,4 +1,4 @@
-use minrx::{BuildError, Match, MatchOptions, Regex, RegexBuilder};
+use minrx::{BuildError, Match, MatchOptions, Regex, RegexBuilder, RegexError};
 
 #[test]
 fn test_simple_literal_match() {
@@ -521,4 +521,13 @@ fn test_multiple_capture_groups_with_alternation() {
     assert_eq!(matches[1], None);
     assert_eq!(matches[2], None);
     assert_eq!(matches[3], Some(Match { start: 0, end: 3 }));
+}
+
+#[test]
+fn test_err_conv() {
+    fn _inner() -> Result<(), RegexError> {
+        let re = Regex::new(r"a")?;
+        assert!(re.is_match("a")?);
+        Ok(())
+    }
 }

@@ -73,6 +73,25 @@ pub struct RegexBuilder(minrx_regcomp_flags_t);
               `Self`, so you must assign it or consume their values."]
 pub struct MatchOptions(minrx_regexec_flags_t);
 
+/// General minrx error. Convertible from any owned specific error.
+#[repr(u32)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RegexError {
+    BadPattern(String) = minrx_result_t_MINRX_REG_BADPAT,
+    BadBracket(String) = minrx_result_t_MINRX_REG_BADBR,
+    BadRepetition(String) = minrx_result_t_MINRX_REG_BADRPT,
+    UnbalancedBrace(String) = minrx_result_t_MINRX_REG_EBRACE,
+    UnbalancedBracket(String) = minrx_result_t_MINRX_REG_EBRACK,
+    InvalidCollate(String) = minrx_result_t_MINRX_REG_ECOLLATE,
+    InvalidClass(String) = minrx_result_t_MINRX_REG_ECTYPE,
+    InvalidEscape(String) = minrx_result_t_MINRX_REG_EESCAPE,
+    UnbalancedParen(String) = minrx_result_t_MINRX_REG_EPAREN,
+    InvalidEndpoint(String) = minrx_result_t_MINRX_REG_ERANGE,
+    AllocError(String) = minrx_result_t_MINRX_REG_ESPACE,
+    InvalidDigitEscape(String) = minrx_result_t_MINRX_REG_ESUBREG,
+    Unknown(String) = minrx_result_t_MINRX_REG_UNKNOWN,
+}
+
 #[repr(u32)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuildError {
@@ -618,23 +637,44 @@ fn non_null_slice<T: ?Sized, U>(ptr: impl Into<NonNull<T>>, len: usize) -> NonNu
     NonNull::slice_from_raw_parts(ptr.into().cast::<U>(), len)
 }
 
+impl Display for RegexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Regex error: ")?;
+        match self {
+            Self::BadPattern(s)
+            | Self::BadBracket(s)
+            | Self::BadRepetition(s)
+            | Self::UnbalancedBrace(s)
+            | Self::UnbalancedBracket(s)
+            | Self::InvalidCollate(s)
+            | Self::InvalidClass(s)
+            | Self::InvalidEscape(s)
+            | Self::UnbalancedParen(s)
+            | Self::InvalidEndpoint(s)
+            | Self::AllocError(s)
+            | Self::InvalidDigitEscape(s)
+            | Self::Unknown(s) => f.write_str(s),
+        }
+    }
+}
+
 impl Display for BuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Regex parse error: ")?;
         match self {
-            BuildError::BadPattern(s)
-            | BuildError::BadBracket(s)
-            | BuildError::BadRepetition(s)
-            | BuildError::UnbalancedBrace(s)
-            | BuildError::UnbalancedBracket(s)
-            | BuildError::InvalidCollate(s)
-            | BuildError::InvalidClass(s)
-            | BuildError::InvalidEscape(s)
-            | BuildError::UnbalancedParen(s)
-            | BuildError::InvalidEndpoint(s)
-            | BuildError::AllocError(s)
-            | BuildError::InvalidDigitEscape(s)
-            | BuildError::Unknown(s) => f.write_str(s),
+            Self::BadPattern(s)
+            | Self::BadBracket(s)
+            | Self::BadRepetition(s)
+            | Self::UnbalancedBrace(s)
+            | Self::UnbalancedBracket(s)
+            | Self::InvalidCollate(s)
+            | Self::InvalidClass(s)
+            | Self::InvalidEscape(s)
+            | Self::UnbalancedParen(s)
+            | Self::InvalidEndpoint(s)
+            | Self::AllocError(s)
+            | Self::InvalidDigitEscape(s)
+            | Self::Unknown(s) => f.write_str(s),
         }
     }
 }
@@ -643,10 +683,40 @@ impl Display for MatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Regex execution error: ")?;
         match self {
-            MatchError::AllocError(s) | MatchError::Unknown(s) => f.write_str(s),
+            Self::AllocError(s) | Self::Unknown(s) => f.write_str(s),
         }
     }
 }
 
+impl From<BuildError> for RegexError {
+    fn from(value: BuildError) -> Self {
+        match value {
+            BuildError::BadPattern(s) => Self::BadPattern(s),
+            BuildError::BadBracket(s) => Self::BadBracket(s),
+            BuildError::BadRepetition(s) => Self::BadRepetition(s),
+            BuildError::UnbalancedBrace(s) => Self::UnbalancedBrace(s),
+            BuildError::UnbalancedBracket(s) => Self::UnbalancedBracket(s),
+            BuildError::InvalidCollate(s) => Self::InvalidCollate(s),
+            BuildError::InvalidClass(s) => Self::InvalidClass(s),
+            BuildError::InvalidEscape(s) => Self::InvalidEscape(s),
+            BuildError::UnbalancedParen(s) => Self::UnbalancedParen(s),
+            BuildError::InvalidEndpoint(s) => Self::InvalidEndpoint(s),
+            BuildError::AllocError(s) => Self::AllocError(s),
+            BuildError::InvalidDigitEscape(s) => Self::InvalidDigitEscape(s),
+            BuildError::Unknown(s) => Self::Unknown(s),
+        }
+    }
+}
+
+impl From<MatchError> for RegexError {
+    fn from(value: MatchError) -> Self {
+        match value {
+            MatchError::AllocError(s) => Self::AllocError(s),
+            MatchError::Unknown(s) => Self::Unknown(s),
+        }
+    }
+}
+
+impl Error for RegexError {}
 impl Error for BuildError {}
 impl Error for MatchError {}
