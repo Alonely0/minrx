@@ -23,14 +23,14 @@ use minrx_sys::{
     minrx_regexec_flags_t_MINRX_REG_NOFIRSTBYTES, minrx_regexec_flags_t_MINRX_REG_NOSUBRESET,
     minrx_regexec_flags_t_MINRX_REG_NOTBOL, minrx_regexec_flags_t_MINRX_REG_NOTEOL,
     minrx_regexec_flags_t_MINRX_REG_RESUME, minrx_regfree, minrx_regmatch_t, minrx_regncomp,
-    minrx_regnexec, minrx_result_t, minrx_result_t_MINRX_REG_BADBR,
-    minrx_result_t_MINRX_REG_BADPAT, minrx_result_t_MINRX_REG_BADRPT,
-    minrx_result_t_MINRX_REG_EBRACE, minrx_result_t_MINRX_REG_EBRACK,
-    minrx_result_t_MINRX_REG_ECOLLATE, minrx_result_t_MINRX_REG_ECTYPE,
-    minrx_result_t_MINRX_REG_EESCAPE, minrx_result_t_MINRX_REG_EPAREN,
-    minrx_result_t_MINRX_REG_ERANGE, minrx_result_t_MINRX_REG_ESPACE,
-    minrx_result_t_MINRX_REG_ESUBREG, minrx_result_t_MINRX_REG_NOMATCH,
-    minrx_result_t_MINRX_REG_SUCCESS, minrx_result_t_MINRX_REG_UNKNOWN,
+    minrx_regnexec, minrx_result_t_MINRX_REG_BADBR, minrx_result_t_MINRX_REG_BADPAT,
+    minrx_result_t_MINRX_REG_BADRPT, minrx_result_t_MINRX_REG_EBRACE,
+    minrx_result_t_MINRX_REG_EBRACK, minrx_result_t_MINRX_REG_ECOLLATE,
+    minrx_result_t_MINRX_REG_ECTYPE, minrx_result_t_MINRX_REG_EESCAPE,
+    minrx_result_t_MINRX_REG_EPAREN, minrx_result_t_MINRX_REG_ERANGE,
+    minrx_result_t_MINRX_REG_ESPACE, minrx_result_t_MINRX_REG_ESUBREG,
+    minrx_result_t_MINRX_REG_NOMATCH, minrx_result_t_MINRX_REG_SUCCESS,
+    minrx_result_t_MINRX_REG_UNKNOWN,
 };
 
 /// A MinRX regex matcher. [`Send`] but not [`Sync`].
@@ -489,7 +489,7 @@ impl Default for MatchOptions {
 impl BuildError {
     fn from_raw(res: c_int, regex: &mut MaybeUninit<minrx_regex_t>) -> Result<(), Self> {
         let err = || regerror(res, regex.as_ptr());
-        let err = match res as minrx_result_t {
+        let err = match res.cast_unsigned() {
             res if res == minrx_result_t_MINRX_REG_SUCCESS => return Ok(()),
             res if res == minrx_result_t_MINRX_REG_BADPAT => Err(Self::BadPattern(err())),
             res if res == minrx_result_t_MINRX_REG_BADBR => Err(Self::BadBracket(err())),
@@ -513,7 +513,7 @@ impl BuildError {
 impl MatchError {
     fn from_raw(res: c_int, regex: &Regex) -> Result<bool, Self> {
         let err = || regerror(res, regex.0.get());
-        match res as minrx_result_t {
+        match res.cast_unsigned() {
             res if res == minrx_result_t_MINRX_REG_SUCCESS => Ok(true),
             res if res == minrx_result_t_MINRX_REG_NOMATCH => Ok(false),
             res if res == minrx_result_t_MINRX_REG_ESPACE => Err(Self::AllocError(err())),
