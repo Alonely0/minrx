@@ -13,4 +13,4 @@ keywords = ["minrx", "regex", "regexp", "posix", "ere"]
 name = "minrx"
 
 [dependencies]
-minrx-sys = "0.2.0"
+minrx-sys = "0.2.1"
