@@ -143,9 +143,9 @@ dependencies = [
 
 [[package]]
 name = "minrx-sys"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cf9b3daecfd7d727fcefb6783cdc11156da16fcfb5e8cdd01cf037c454e8536"
+checksum = "5716c490c15e07ef084ddd3d3901a978d1355334a51201c71856a2d532bbe4d5"
 dependencies = [
  "bindgen",
  "cc",
